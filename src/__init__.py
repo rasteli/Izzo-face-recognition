@@ -3,7 +3,10 @@ import numpy
 from flask import Flask, request
 import face_recognition as fr
 
-api = Flask(__name__)
+def create_app():
+    app = Flask(__name__)
+
+    return app
 
 def rec_face(url_foto):
     print(f"Arquivo: {url_foto}")
@@ -11,6 +14,7 @@ def rec_face(url_foto):
     foto = fr.load_image_file(url_foto)
     locations = fr.face_locations(foto)
     rostos = fr.face_encodings(foto)
+    
     print(locations)
 
     if (len(rostos) > 0):
@@ -18,7 +22,9 @@ def rec_face(url_foto):
 
     return False, [], []
 
-@api.route("/")
+app = create_app()
+
+@app.route("/")
 def raiz():
     response = flask.jsonify({"message": "Hello, world!"})
     response.headers.add('Access-Control-Allow-Origin', '*')
@@ -26,7 +32,7 @@ def raiz():
 
 # Obter rosto
 
-@api.route("/faces", methods=["POST"])
+@app.route("/faces", methods=["POST"])
 def faces():
     error = False
     error_message = ""
@@ -42,13 +48,18 @@ def faces():
 
             if (person_number > 0):
                 locations = unknown[2]
-                rostos = unknown[1]
+                rostos = unknown[1][0]
+
                 face = str(rostos)
                 face = face.replace("\n", "")
                 face = face.replace("\\", "")
+
                 while ("  " in face):
                     face = face.replace("  ", " ")
 
+                face = face.replace(" ", ", ")
+
+                print(f"Rosto: {face}")
                 faces.append(face)
                 code = 200
             else:
@@ -62,15 +73,22 @@ def faces():
             code = 500
             print("There was an internal error")
 
-    response = flask.jsonify({"status": code, "error": error, "error_message": error_message, 'faces': str(faces),
-                              "person_number": person_number, "locations": str(locations), "conectors": str(list(zip(locations, faces)))})
+    response = flask.jsonify({
+        "status": code, 
+        "error": error, 
+        "error_message": error_message, 
+        "faces": str(faces),
+        "person_number": person_number, 
+        "locations": str(locations), 
+        "conectors": str(list(zip(locations, faces)))
+    })
+
     response.headers.add('Access-Control-Allow-Origin', '*')
     return response, code
 
-
 # Comparar rostos
 
-@api.route("/compare", methods=["POST"])
+@app.route("/compare", methods=["POST"])
 def compare():
     index = -1
     res = []
@@ -83,31 +101,40 @@ def compare():
         familiar_faces = numpy.array(eval(request.form["familiar_faces"].replace("array", "")), dtype=float)
         faces = eval(request.form["faces"])
 
+        print(f"Familiar Faces: {familiar_faces}\n")
+        print(f"Faces: {faces}\n")
+
         for face in faces:
             face = numpy.array(eval(face), dtype=float)
+            print(f"Face in loop: {face}")
             distances = fr.face_distance(familiar_faces, face)
             prob = list(map(lambda x: 1 - x, distances))
             probs.append(prob)
 
-
         parcial = []
-        for i in range(0, len(probs[0])-1):
+
+        for i in range(0, len(probs) - 1):
+            
             for pr in probs:
-                parcial.append(pr[i])
-            media = sum(parcial)/len(parcial)
+                print(f"PR: {pr}")
+                parcial.append(pr[0])
+
+            media = sum(parcial) / len(parcial)
             res.append(media)
             parcial = []
 
         index = numpy.argmax(res)
+
     except Exception as err:
         code = 500
         error = True
         error_message = f"ERROR: {err}"
+        print(err)
+
     response = flask.jsonify({
         "status": code,
         "error": error,
         "error_message": error_message,
-        #"probs": str(probs),
         "res": str(res),
         "index": str(index)
     })
@@ -117,4 +144,4 @@ def compare():
 
 
 if __name__ == "__main__":
-    api.run(debug=True, port=8000)
+    app.run(debug=True, port=8000)
