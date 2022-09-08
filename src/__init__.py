@@ -3,7 +3,10 @@ import numpy
 from flask import Flask, request
 import face_recognition as fr
 
-api = Flask(__name__)
+def create_app():
+    app = Flask(__name__)
+
+    return app
 
 def rec_face(url_foto):
     print(f"Arquivo: {url_foto}")
@@ -16,10 +19,12 @@ def rec_face(url_foto):
 
     return False, []
 
+app = create_app()
+
 # Link de como enviar uma imagem diretamente pela API
 # LINK: https://cursos.alura.com.br/forum/topico-envio-de-json-e-imagem-em-uma-requisicao-post-com-spring-boot-62481
 
-@api.route("/")
+@app.route("/")
 def raiz():
     response = flask.jsonify({"message": "Hello, world!"})
     response.headers.add('Access-Control-Allow-Origin', '*')
@@ -27,7 +32,7 @@ def raiz():
 
 # Obter rosto
 
-@api.route("/getface", methods=["POST"])
+@app.route("/getface", methods=["POST"])
 def teste2():
     face = ""
     error = False
@@ -73,7 +78,7 @@ def teste2():
 
 # Comparar rostos
 
-@api.route("/compare", methods=["POST"])
+@app.route("/compare", methods=["POST"])
 def compare():
     familiar_faces = numpy.array(eval(request.form["familiar_faces"].replace("array", "")), dtype=float)
     faces = eval(request.form["faces"])
@@ -115,4 +120,4 @@ def compare():
 
 
 if __name__ == "__main__":
-    api.run(debug=True, port=8000)
+    app.run(debug=True, port=8000)
